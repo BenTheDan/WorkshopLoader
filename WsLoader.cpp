@@ -17,17 +17,18 @@ void WsLoader::onLoad() {
 	cvarManager->registerCvar("sw_notfound", "", "error message", false);
 	cvarManager->registerCvar("eg_notfound", "", "error message", false);
 	cvarManager->registerCvar("ws_notfound", "", "error message", false);
+	cvarManager->registerCvar("loaded_ws", "", "The filename of the last loaded workshop.", false);
 	cvarManager->registerNotifier("wsl_openMenu", std::bind(&WsLoader::OpenMenu, this), "Opens workshop menu", 0);
 
 	eg_path = fs::path(fs::absolute(cvarManager->getCvar("eg_path").getStringValue())) / "TAGame\\CookedPCConsole\\";
 	ws_path = fs::absolute(cvarManager->getCvar("ws_path").getStringValue());
 	switchFile = eg_path / (cvarManager->getCvar("switch_map").getStringValue() + ".upk");
 
+	//Write warnings if any of the default paths are invalid
 	CheckPath(eg_path, false, "eg_notfound");
 	CheckPath(ws_path, false, "ws_notfound");
 	CheckPath(switchFile, false, "sw_notfound");
 
-	status = "Unknown";
 	pressed_btn = "";
 }
 
@@ -52,6 +53,7 @@ void WsLoader::LoadMap(fs::path map) {
 	std::filesystem::copy(map, switchFile, std::filesystem::copy_options::overwrite_existing);
 	cvarManager->log("Loaded: " + map.filename().string());
 	status = "Loaded: " + map.filename().string();
+	cvarManager->getCvar("loaded_ws").setValue(map.filename().string());
 }
 
 std::string WsLoader::UnloadMap() {
@@ -95,6 +97,18 @@ void WsLoader::Render() {
 }
 
 void WsLoader::OnOpen() {
+	if (CheckPath(switchFile, false, "sw_notfound")) {
+		//Check whether a workshop is still loaded by searching for a backup of the original map
+		if (CheckPath(GenerateBackupName(switchFile), false, "")) {
+			status = "Loaded: " + cvarManager->getCvar("loaded_ws").getStringValue();
+		}
+		else {
+			status = "No map loaded";
+		}
+	}
+	else {
+		status = "No map loaded";
+	}
 	maps.clear();
 	for (const auto& entry : std::filesystem::directory_iterator(ws_path)) {
 		std::string path_str = entry.path().string();
@@ -151,7 +165,7 @@ void WsLoader::WsChanged(std::string prev, CVarWrapper curr) {
 void WsLoader::SwitchChanged(std::string prev, CVarWrapper curr) {
 	fs::path new_path = eg_path / (curr.getStringValue() + ".upk");
 	if (CheckPath(new_path, false, "sw_notfound")) {
-		UnloadMap();
+		if (CheckPath(switchFile, false, "") && prev != curr.getStringValue()) { if (GenerateBackupName(switchFile), false, "") { UnloadMap(); } }
 		switchFile = new_path;
 	}
 }
@@ -160,7 +174,7 @@ void WsLoader::SwitchChanged(std::string prev, CVarWrapper curr) {
 void WsLoader::EGChanged(std::string prev, CVarWrapper curr) {
 	fs::path path = fs::absolute(curr.getStringValue()) / "TAGame\\CookedPCConsole\\";
 	if (CheckPath(path, false, "eg_notfound")) {
-		UnloadMap();
+		if (CheckPath(switchFile, false, "") && prev != curr.getStringValue()) { if (GenerateBackupName(switchFile), false, "") { UnloadMap(); } }
 		eg_path = path;
 		if (CheckPath(eg_path / switchFile.filename(), false, "sw_notfound")) {
 			switchFile = eg_path / switchFile.filename();
@@ -183,7 +197,7 @@ bool WsLoader::CheckPath(fs::path path, bool logError = false, std::string warni
 		if (logError) {
 			cvarManager->log(path.string() + " not found!");
 		}
-		//Log to cvar
+		//Log to cvar 
 		if (warningCvar != "") {
 			cvarManager->getCvar(warningCvar).setValue("Warning: " + path.string() + " could not be found!");
 		}
