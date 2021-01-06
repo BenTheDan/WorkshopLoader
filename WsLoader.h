@@ -1,9 +1,10 @@
 #pragma once
+#pragma comment( lib, "pluginsdk.lib")
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "./imgui/imgui.h"
+#include "curl/curl.h"
 #include <filesystem>
-#pragma comment( lib, "pluginsdk.lib")
 
 namespace fs = std::filesystem;
 
